@@ -24,10 +24,12 @@ import com.amazonaws.flink.async.bedrock.operators.AmazonOpenSearchSink;
 import com.amazonaws.flink.async.bedrock.operators.AsyncBedrockRequest;
 import com.amazonaws.flink.async.bedrock.operators.ReviewMapper;
 import com.amazonaws.flink.async.bedrock.utils.GsonUtils;
+import org.apache.flink.connector.firehose.sink.KinesisFirehoseSink;
 import org.apache.flink.streaming.api.datastream.AsyncDataStream;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.connectors.kinesis.FlinkKinesisConsumer;
+import org.apache.flink.streaming.connectors.kinesis.config.AWSConfigConstants;
 import org.apache.flink.streaming.connectors.kinesis.config.ConsumerConfigConstants;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.streaming.api.environment.LocalStreamEnvironment;
@@ -52,6 +54,17 @@ public class StreamingJob {
 
 		return env.addSource(new FlinkKinesisConsumer<>(applicationProperties.getProperty("INPUT_STREAM_NAME"),
 				new SimpleStringSchema(), inputProperties));
+	}
+
+	private static void createFirehoseSink(DataStream<String> filteredProcessedReviewStreamJson, Properties applicationProperties) {
+		Properties sinkProperties = new Properties();
+		sinkProperties.setProperty(AWSConfigConstants.AWS_REGION, applicationProperties.getProperty("REGION"));
+		String firehoseDeliveryStreamName = applicationProperties.getProperty("FIREHOSE_DELIVERY_STREAM");
+		filteredProcessedReviewStreamJson.sinkTo(KinesisFirehoseSink.<String>builder()
+				.setSerializationSchema(new SimpleStringSchema())
+				.setFirehoseClientProperties(sinkProperties)
+				.setDeliveryStreamName(firehoseDeliveryStreamName)
+				.build());
 	}
 
 	private void execute() throws Exception {
@@ -86,16 +99,27 @@ public class StreamingJob {
 				processedReview -> processedReview.getSentiment().equals("positive")  || processedReview.getSentiment().equals("negative")).uid("filteredProcessedReviewStream");
 
 		LOG.info("Preparing to write to OpenSearch.");
-		DataStream<Object> filteredProcessedReviewStreamJson = filteredProcessedReviewStream.map(x -> GsonUtils.toJson(x));
+		DataStream<String> filteredProcessedReviewStreamJson = filteredProcessedReviewStream.map(x -> GsonUtils.toJson(x));
 
 		if (env instanceof LocalStreamEnvironment) {
 
 			filteredProcessedReviewStreamJson.print("processedReviewStreamJson: ");
 
 		} else {
-
 			String elasticSearchEndpoint = applicationProperties.getProperty("OPEN_SEARCH_ENDPOINT");
-			filteredProcessedReviewStreamJson.sinkTo(AmazonOpenSearchSink.buildOpenSearchSink(elasticSearchEndpoint, "processed_reviews"));
+
+			if (elasticSearchEndpoint != null && !elasticSearchEndpoint.isEmpty()) {
+				// Sink to Amazon OpenSearch
+				filteredProcessedReviewStreamJson.sinkTo(AmazonOpenSearchSink.buildOpenSearchSink(elasticSearchEndpoint, "processed_reviews"));
+			} else {
+				// Sink to Amazon Kinesis Data Firehose
+				String firehoseDeliveryStreamName = applicationProperties.getProperty("FIREHOSE_DELIVERY_STREAM");
+				if (firehoseDeliveryStreamName == null || firehoseDeliveryStreamName.isEmpty()) {
+					throw new IllegalArgumentException("FIREHOSE_DELIVERY_STREAM property is required when OPEN_SEARCH_ENDPOINT is not provided");
+				}
+				createFirehoseSink(filteredProcessedReviewStreamJson, applicationProperties);
+			}
+
 
 		}
 

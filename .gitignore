@@ -1,0 +1,9 @@
+cdk/cdk.context.json
+cdk/cdk.out
+cdk/node_modules
+cdk/package-lock.json
+cdk/output.json
+.idea
+flink-async-bedrock/target
+flink-async-bedrock/dependency-reduced-pom.xml
+data/*
