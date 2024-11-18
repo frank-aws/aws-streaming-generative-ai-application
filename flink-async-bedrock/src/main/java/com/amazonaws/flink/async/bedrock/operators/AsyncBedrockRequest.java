@@ -110,11 +110,12 @@ public class AsyncBedrockRequest extends RichAsyncFunction<Review, ProcessedRevi
                     LOG.info("ResponseString: " + responseString);
 
                     JSONObject responseJson = new JSONObject(responseString);
-                    return new ProcessedReview(review.getReviewId(), review.getUserId(), responseJson.get("summary").toString(), review.getDateTime(), responseJson.get("sentiment").toString());
+                    return new ProcessedReview(review.getReviewId(), review.getUserId(), responseJson.get("summary").toString(), review.getText(), review.getDateTime(), responseJson.get("sentiment").toString());
 
                 } catch (InterruptedException | ExecutionException | JSONException e ) {
                     LOG.error(e.getMessage());
-                    return new ProcessedReview(review.getReviewId(), review.getUserId(), review.getText(), review.getDateTime(), "error");
+                    // Create String that says Summary not available
+                    return new ProcessedReview(review.getReviewId(), review.getUserId(), "Summary not available", review.getText(), review.getDateTime(), "error");
                 }
             }
         }).thenAccept( (ProcessedReview result) -> {

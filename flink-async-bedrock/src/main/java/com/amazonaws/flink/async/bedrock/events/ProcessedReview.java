@@ -5,16 +5,18 @@ public class ProcessedReview {
     private int reviewId;
     private String userId;
     private String summary;
+    private String originalText;
     private long dateTime;
     private String sentiment;
 
     public ProcessedReview() {
     }
 
-    public ProcessedReview(int reviewId, String userId, String summary, long dateTime, String sentiment) {
+    public ProcessedReview(int reviewId, String userId, String summary, String originalText, long dateTime, String sentiment) {
         this.reviewId = reviewId;
         this.userId = userId;
         this.summary = summary;
+        this.originalText = originalText;
         this.dateTime = dateTime;
         this.sentiment = sentiment;
     }
@@ -43,6 +45,14 @@ public class ProcessedReview {
         this.summary = summary;
     }
 
+    public String getOriginalText() {
+        return originalText;
+    }
+
+    public void setOriginalText(String originalText) {
+        this.originalText = originalText;
+    }
+
     public long getDateTime() {
         return dateTime;
     }
@@ -60,6 +70,7 @@ public class ProcessedReview {
                 "reviewId=" + reviewId +
                 ", userId='" + userId + '\'' +
                 ", summary='" + summary + '\'' +
+                ", originalText='" + originalText + '\'' +
                 ", dateTime=" + dateTime + '\'' +
                 ", sentiment=" + sentiment +
                 '}';
